@@ -1,14 +1,8 @@
-<!--
-  Core Framework - View File
-
-  @license    MIT (https://mit-license.org/)
-  @author     Louis Ouellet <louis@laswitchtech.com>
--->
 <div class="col-12" id="layout"></div>
 <script>
     $(document).ready(function(){
         $.ajax({
-            url: '/endpoint.php/organizations/fetch?id=<?= $this->Request->getParams('GET', 'id') ?>',
+            url: '/api/organizations/fetch?id=<?= $this->Request->getParams('GET', 'id') ?>',
             type: 'GET',dataType: 'json',
             error: function(xhr, status, error) {
                 let color = 'info', icon = 'question-circle', title = builder.Locale.get(xhr.statusText), content = builder.Locale.get(xhr.responseText);
@@ -20,7 +14,11 @@
                 builder.Component("alert","#layout",{icon:icon,color:color,title:title},function(alert,component){component.content.html('<pre class="m-0 p-2">'+content+'</pre>');});
             },
             success: function(response) {
-                console.log(response);
+
+                // Configure Storage
+                builder.Storage.setKey('organizations:'+builder.Storage.get('record:id'));
+                builder.Storage.set(response);
+                console.log(builder.Storage.get())
 
                 // Set the color, icon and label
                 var color = ['secondary','primary','success','warning','danger'];
@@ -61,7 +59,7 @@
                         component.body.avatar = $(document.createElement('div')).addClass('rounded-circle border border-3 border-light d-flex justify-content-center align-items-center position-relative').css({"height": "256px", "width": "256px"}).appendTo(component.body);
                         component.body.avatar.img = $(document.createElement('img')).attr({
                             "class": "rounded-circle",
-                            "src": '/plugin/organizations/logo?id=' + response.record.id,
+                            "src": '/plugin/organizations/logo?id=' + builder.Storage.get('record:id'),
                             "data-type": "avatar",
                             "data-vcard": response.record.vcard.id,
                             "style": "max-height: 250px; max-width: 250px; height: 250px; width: 250px; object-fit: contain; object-position: center;",
@@ -120,9 +118,6 @@
                                         icon:'trash',
                                         action:function(event, table, dt, node, row, data){
 
-                                            // Update the table
-                                            table.delete(row);
-
                                             // Retrieve the users
                                             var users = [];
                                             for(const [key, record] of Object.entries(table.data())){
@@ -135,18 +130,17 @@
                                             var ajaxData = {
                                                 users: JSON.stringify(users),
                                             };
-                                            ajaxData[CSRF_KEY] = CSRF_TOKEN;
 
                                             // AJAX Request
                                             $.ajax({
-                                                url: '/endpoint.php/organizations/update?id='+response.record.id,
+                                                url: '/api/organizations/update?id='+builder.Storage.get('record:id'),
+                                                headers: {'X-CSRF-Authorization': CSRF_KEY},
                                                 type: 'POST',dataType: 'json',
                                                 data: ajaxData,
                                                 success: function(response) {
 
-                                                    // Update the CSRF Token
-                                                    CSRF_KEY = response.CSRF.key;
-                                                    CSRF_TOKEN = response.CSRF.token;
+                                                    // Update the table
+                                                    table.delete(row);
                                                 }
                                             });
                                         },
@@ -163,9 +157,9 @@
 
                                             // AJAX Request
                                             $.ajax({
-                                                url: '/endpoint.php/organizations/users',
+                                                url: '/api/auth/users',
                                                 type: 'GET',dataType: 'json',
-                                                success: function(users) {
+                                                success: function(response) {
 
                                                     // Retrieve existing members
                                                     var members = []
@@ -175,7 +169,7 @@
 
                                                     // Build options
                                                     var options = [];
-                                                    for(const [key, user] of Object.entries(users)){
+                                                    for(const [key, user] of Object.entries(response.records)){
                                                         if($.inArray(user.id, members) === -1){
                                                             options.push({id: user.id, text: user.username+' - '+user.vcard.name});
                                                         }
@@ -219,27 +213,18 @@
                                                                         submit: function(form){
 
                                                                             // Add the record to the table
-                                                                            dt.row.add(users[form.val()]).draw();
+                                                                            dt.row.add(response.records[form.val()]).draw();
 
                                                                             // Add the user to the list of members
                                                                             members.push(form.val());
 
-                                                                            // Set the AJAX DATA
-                                                                            var ajaxData = {
-                                                                                users: members,
-                                                                            };
-                                                                            ajaxData[CSRF_KEY] = CSRF_TOKEN;
-
                                                                             // AJAX Request
                                                                             $.ajax({
-                                                                                url: '/endpoint.php/organizations/update?id='+response.record.id,
+                                                                                url: '/api/organizations/update?id='+builder.Storage.get('record:id'),
+                                                                                headers: {'X-CSRF-Authorization': CSRF_KEY},
                                                                                 type: 'POST',dataType: 'json',
-                                                                                data: ajaxData,
+                                                                                data: {users: members},
                                                                                 success: function(response) {
-
-                                                                                    // Update the CSRF Token
-                                                                                    CSRF_KEY = response.CSRF.key;
-                                                                                    CSRF_TOKEN = response.CSRF.token;
 
                                                                                     // Hide the modal
                                                                                     modal.hide();
@@ -300,7 +285,7 @@
                                         },
                                     },
                                     function(table,component){
-                                        for(const [key, record] of Object.entries(response.record.users ?? {})){
+                                        for(const [key, record] of Object.entries(builder.Storage.get('dependencies:users') ?? {})){
                                             table.add(record);
                                         }
                                     },
@@ -314,7 +299,7 @@
                                 label: builder.Locale.get("Notes"),
                             },
                             function(tab,nav){
-                                NotesFeed(response.record.notes ?? {}, tab, 'organizations', response.record.id);
+                                NotesFeed(builder.Storage.get('dependencies:notes') ?? {}, tab, 'organizations', builder.Storage.get('record:id'));
                             },
                         );
                         tabs.add(
@@ -324,16 +309,16 @@
                                 label: builder.Locale.get("Contacts"),
                             },
                             function(tab,nav){
-                                ContactsFeed(response.record.contacts ?? {}, tab, {
-                                    "address": response.record.vcard.address,
-                                    "city": response.record.vcard.city,
-                                    "country": response.record.vcard.country,
-                                    "state": response.record.vcard.state,
-                                    "zipcode": response.record.vcard.zipcode,
-                                    "locale": response.record.vcard.locale,
-                                    "phone": response.record.vcard.phone,
+                                ContactsFeed(builder.Storage.get('dependencies:contacts') ?? {}, tab, {
+                                    "address": builder.Storage.get('record:vcard:address'),
+                                    "city": builder.Storage.get('record:vcard:city'),
+                                    "country": builder.Storage.get('record:vcard:country'),
+                                    "state": builder.Storage.get('record:vcard:state'),
+                                    "zipcode": builder.Storage.get('record:vcard:zipcode'),
+                                    "locale": builder.Storage.get('record:vcard:locale'),
+                                    "phone": builder.Storage.get('record:vcard:phone'),
                                     "targetTable": "organizations",
-                                    "targetId": response.record.id,
+                                    "targetId": builder.Storage.get('record:id'),
                                 });
                             },
                         );
@@ -344,9 +329,10 @@
                                 label: builder.Locale.get("Files"),
                             },
                             function(tab,nav){
-                                FilesFeed(response.record.files ?? {}, tab, {
+                                FilesFeed(builder.Storage.get('dependencies:files') ?? {}, tab, {
+                                    path: "organizations/"+builder.Storage.get('record:id'),
                                     targetTable: "organizations",
-                                    targetId: response.record.id,
+                                    targetId: builder.Storage.get('record:id'),
                                     isPublic: 1,
                                 });
                             },
@@ -359,7 +345,7 @@
                             },
                             function(tab,nav){
                                 tab.addClass('px-4 py-3');
-                                EventFeed(response.record.events ?? {}, tab);
+                                EventFeed(builder.Storage.get('dependencies:event') ?? {}, tab);
                             },
                         );
                         tabs.add(
@@ -370,7 +356,9 @@
                             },
                             function(tab,nav){
                                 tab.addClass('px-4 py-3');
-                                RelationshipFeed(response.relationships ?? [], tab);
+                                RelationshipFeed(builder.Storage.getKey(), tab, function(feed){
+                                    // card.related.feed = feed;
+                                });
                             },
                         );
                     },

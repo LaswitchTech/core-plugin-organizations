@@ -1,12 +1,5 @@
 <?php
 
-/**
- * Core Framework - OrganizationsController
- *
- * @license    MIT (https://mit-license.org/)
- * @author     Louis Ouellet <louis@laswitchtech.com>
- */
-
 // Import additionnal class into the global namespace
 use \LaswitchTech\Core\Objects;
 use \LaswitchTech\Core\Abstracts\Controller;
@@ -44,18 +37,18 @@ class OrganizationsController extends Controller {
      */
     public function logoAction(): array
     {
-        // Import Global Variables
-        global $CONFIG;
-
         // Retrieve the parameters
         $id = $this->Request->getParams('GET', 'id') ?? null;
         $size = $this->Request->getParams('GET', 'size') ?? 128;
 
         // Retrieve the organization
-        $organization = $this->Model->Organizations->logo($id);
+        $organization = $this->Model->Organizations->fetch($id);
 
         // Check if user was retrieved
-        if(isset($organization['vcard'])){
+        if(!empty($organization)){
+
+            // Retrieve the vcard
+            $organization['vcard'] = $this->Model->Vcards->fetch($organization['vcard']['id']);
 
             // Check if the organization has an avatar
             if($organization['vcard']['avatar']['uuid']){
@@ -70,10 +63,13 @@ class OrganizationsController extends Controller {
             // Check if the organization has a website
             if($organization['vcard']['website']){
                 $content = $this->Helper->Favicon->content($organization['vcard']['website']);
-                return [
+                $logo = [
                     'type' => $this->Helper->Favicon->mimeType($content),
                     'content' => $content
                 ];
+                // Convert the logo to png format
+                $logo = $this->Helper->Favicon->convert($logo, 'png', $size, $size);
+                return $logo;
             }
         }
 
