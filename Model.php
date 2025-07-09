@@ -1,163 +1,111 @@
 <?php
 
-/**
- * Core Framework - OrganizationsModel
- *
- * @license    MIT (https://mit-license.org/)
- * @author     Louis Ouellet <louis@laswitchtech.com>
- */
-
 // Import additionnal class into the global namespace
-use \LaswitchTech\Core\Abstracts\Model;
+use \LaswitchTech\Core\Base\BaseModel;
 
-class OrganizationsModel extends Model {
+class OrganizationsModel extends BaseModel {
 
     /**
-     * Retrieve the list of Organizations
+     * Constructor
+     */
+    public function __construct()
+    {
+        // Call the parent constructor
+        parent::__construct();
+
+        // Initialize the Model
+        $this->init('organizations');
+    }
+
+    /**
+     * Retrieve multiple records
      *
+     * @param array $conditions
      * @return array
      */
-    public function list(): array
+    public function fetchAll(array $conditions = [], string $conjunction = 'AND'): array
     {
-        // Retrieve the Organizations
+        // Create the Query
         $Query = $this->Database->query()
-            ->table('organizations')
+            ->table($this->table)
             ->select('*')
             ->join('owner', 'users', 'username')
             ->join('vcard', 'vcards', 'id')
-            ->where('id', 9999, '<>')
-            ->where('isActive', 1)
-            ->where('isDeleted', 1, '<>');
+            ->filter()
+            ->where('id', 9999, '<>');
 
-        // Fetch the Organizations
-        $organizations = $Query->fetch();
+        // Check if the conditions are empty
+        if(!empty($conditions)){
 
-        // Return the Organizations
-        return $organizations;
-    }
+            // Add a Filter
+            $Query->filter();
 
-    /**
-     * Retrieve Organizations's Details
-     *
-     * @param int $id
-     * @param bool $all
-     * @return array
-     */
-    public function get(int $id, bool $all = true): array
-    {
-        // Retrieve the Organization
-        $Query = $this->Database->query()
-            ->table('organizations')
-            ->select('*')
-            ->join('owner', 'users', 'username')
-            ->where('id', $id)
-            ->where('id', 9999, '<>')
-            ->limit(1);
+            // Add the Conditions
+            foreach($conditions as $key => $condition){
 
-        // Fetch the Organizations
-        $organizations = $Query->fetch();
+                // Check if the key exists in the definition
+                if(!array_key_exists($condition['key'], $this->definition)){
 
-        // Loop through the Organizations
-        foreach($organizations as $key => $organization){
-
-            // Decode JSON Fields
-            $organization['users'] = json_decode($organization['users'] ?? '[]', true);
-
-            // Check if all the details should be retrieved
-            if($all){
-
-                // Retrieve the Users
-                $users = [];
-                foreach($organization['users'] as $key => $user){
-
-                    // Retrieve the User
-                    $Query = $this->Database->query()
-                        ->table('users')
-                        ->select('*')
-                        ->join('owner', 'users', 'username')
-                        ->join('vcard', 'vcards', 'id')
-                        ->where('id', 9999, '<>')
-                        ->where('id', $user)
-                        ->limit(1);
-                    $users[$user] = $Query->fetch()[0] ?? [];
-                }
-                $organization['users'] = $users;
-
-                // Retrieve the vCard
-                $Query = $this->Database->query()
-                    ->table('vcards')
-                    ->select('*')
-                    ->join('state', 'states', 'code')
-                    ->join('country', 'countries', 'code')
-                    ->join('avatar', 'files', 'id')
-                    ->where('id', $organization['vcard'])
-                    ->limit(1);
-                $organization['vcard'] = $Query->result()[0] ?? $organization['vcard'];
-
-                // Retrieve the Events
-                $Query = $this->Database->query()
-                    ->table('events')
-                    ->select('*')
-                    ->filter()
-                    ->where('targetTable', 'organizations')
-                    ->where('targetId', $organization['id'])
-                    ->index('id');
-                $organization['events'] = $Query->result();
-
-                // Retrieve the Files
-                $Query = $this->Database->query()
-                    ->table('files')
-                    ->select('*')
-                    ->join('owner', 'users', 'username')
-                    ->filter()
-                    ->where('id', 9999, '<>')
-                    ->where('isArchived', 1, '<>')
-                    ->where('targetTable', 'organizations')
-                    ->where('targetId', $organization['id'])
-                    ->index('id');
-                $organization['files'] = $Query->result();
-
-                // Retrieve the Notes
-                $Query = $this->Database->query()
-                    ->table('notes')
-                    ->select('*')
-                    ->join('owner', 'users', 'username')
-                    ->filter()
-                    ->where('id', 9999, '<>')
-                    ->where('isArchived', 1, '<>')
-                    ->where('targetTable', 'organizations')
-                    ->where('targetId', $organization['id'])
-                    ->index('id');
-                foreach($Query->result() as $note){
-                    $note['sharedWith'] = json_decode($note['sharedWith'] ?? '[]', true);
-                    $organization['notes'][$note['id']] = $note;
+                    // Remove the key from the data
+                    unset($conditions[$key]);
+                    continue;
                 }
 
-                // Retrieve the Contacts
-                $Query = $this->Database->query()
-                    ->table('contacts')
-                    ->select('*')
-                    ->join('owner', 'users', 'username')
-                    ->join('vcard', 'vcards', 'id')
-                    ->filter()
-                    ->where('id', 9999, '<>')
-                    ->where('isArchived', 1, '<>')
-                    ->where('targetTable', 'organizations')
-                    ->where('targetId', $organization['id'])
-                    ->index('id');
-                $organization['contacts'] = $Query->result();
+                // Add the condition to the Query
+                $Query->where($condition["key"], $condition["value"], $condition["operator"], $conjunction);
             }
-
-            // Save the Organization
-            return $organization;
         }
 
-        // Return the Organization
-        return [];
+        // Retrieve the Results
+        $records = $Query->fetch();
+
+        // Loop through the records to process them
+        foreach($records as $key => $record){
+
+            // Overwrite the record with the processed one
+            $records[$key] = $this->process($record);
+        }
+
+        // Return the Results
+        return $records;
     }
 
     /**
-     * Update a organization
+     * Retrieve a single record
+     *
+     * @param int $id
+     * @return array
+     */
+    public function fetch(int $id): array
+    {
+        // Create the Query
+        $Query = $this->Database->query()
+            ->table($this->table)
+            ->select('*')
+            ->join('owner', 'users', 'username')
+            ->join('vcard', 'vcards', 'id')
+            ->filter()
+            ->where('id', 9999, '<>')
+            ->filter()
+            ->where($this->primary, $id)
+            ->limit(1);
+
+        // Retrieve the record
+        $records = $Query->fetch();
+
+        // Loop through the records to process them
+        foreach($records as $key => $record){
+
+            // Overwrite the record with the processed one
+            $records[$key] = $this->process($record);
+        }
+
+        // Return the record or an empty array if not found
+        return $records[array_key_first($records)] ?? [];
+    }
+
+    /**
+     * Update a record
      *
      * @param int $id
      * @param array $data
@@ -165,110 +113,28 @@ class OrganizationsModel extends Model {
      */
     public function update(int $id, array $data): int
     {
-        // Create the Query
-        $Query = $this->Database->query()
-            ->table('organizations')
-            ->update($data)
-            ->where('id', $id);
+        // Sanitize the Data
+        foreach($data as $key => $value){
 
-        // Execute the Query
-        return $Query->execute();
-    }
+            // Add exceptions for specific fields
+            if($key === 'users' && is_array($value)){
 
-    /**
-     * Create a new organization and return the id
-     *
-     * @param array $data
-     * @return int
-     */
-    public function create(array $data): int
-    {
-        // Create the Query
-        $Query = $this->Database->query()
-            ->table('organizations')
-            ->insert($data);
+                // Loop through each userId in the array
+                foreach($value as $userKey => $userId){
 
-        // Execute the Query
-        $affectedRows = $Query->execute();
+                    // Convert the userId to an integer
+                    $value[$userKey] = (int)$userId;
+                }
 
-        // Execute the Query
-        return $Query->lastId();
-    }
+                // Filter unique user IDs
+                $value = array_unique($value);
+            }
 
-    /**
-     * Retrieve the Organization's Logo
-     *
-     * @param int $id
-     * @return array
-     */
-    public function logo(int $id): array
-    {
-        // Create a Query
-        $Query = $this->Database->query()
-            ->table('organizations')
-            ->select('*')
-            ->filter()
-            ->where('id', $id)
-            ->limit(1);
-
-        // Retrieve the User
-        $organization = $Query->result();
-
-        // Check if the organization exists
-        if($organization){
-
-            // Select the organization
-            $organization = $organization[array_key_first($organization)];
-
-            // Create the Query
-            $Query = $this->Database->query()
-                ->table('vcards')
-                ->select('*')
-                ->join('avatar', 'files', 'id')
-                ->order('id', 'ASC')
-                ->filter()
-                ->where('id', 9999, '<>')
-                ->filter()
-                ->where('id', $organization['vcard'])
-                ->limit(1);
-
-            // Retrieve the vCard
-            $vCard = $Query->result();
-
-            // Return the vCard
-            $organization['vcard'] = $vCard[array_key_first($vCard)] ?? [];
+            // Set the value back to the data array
+            $data[$key] = $value;
         }
 
-        // Return the Organization
-        return $organization;
-    }
-
-    /**
-     * Retrieve the list of Users
-     *
-     * @return array
-     */
-    public function users(): array
-    {
-        // Retrieve the Groups
-        $Query = $this->Database->query()
-            ->table('users')
-            ->select('*')
-            ->join('owner', 'users', 'username')
-            ->join('vcard', 'vcards', 'id')
-            ->where('id', 9999, '<>')
-            ->index('id');
-
-        // Fetch the Groups
-        $users = $Query->fetch();
-
-        // Sanitize the Groups
-        foreach($users as $key => $user){
-            $users[$key]['vcard']['tags'] = json_decode($user['vcard']['tags'] ?? '[]', true);
-            $users[$key]['vcard']['industries'] = json_decode($user['vcard']['industries'] ?? '[]', true);
-        }
-
-        // Return the Users
-        return $users;
+        // Call the parent update method
+        return parent::update($id, $data);
     }
 }
