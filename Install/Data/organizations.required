@@ -1,0 +1,13 @@
+[
+    {
+        "id": 9999,
+        "created": "2025-04-07 15:10:38",
+        "modified": "2025-04-07 15:10:38",
+        "owner": "demo",
+        "users": null,
+        "vcard": null,
+        "hourlyRate": 0,
+        "isDeleted": 0,
+        "isActive": 1
+    }
+]
