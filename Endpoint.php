@@ -39,7 +39,7 @@ class OrganizationsEndpoint extends BaseEndpoint {
                 $message['data']['dependencies']['users'] = [];
 
                 // Loop through the users to fetch them.
-                foreach($message['data']['record']['users'] as $id){
+                foreach($message['data']['record']['users'] ?? [] as $id){
                     $message['data']['dependencies']['users'][$id] = $this->Model->Users->fetch($id);
                 }
 
