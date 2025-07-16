@@ -98,7 +98,7 @@
                             let record = await builder.Storage.get('record');
 
                             // Set the table
-                            let table = 'groups'
+                            let table = 'organizations'
 
                             // Styling
                             card._component.body.removeClass('card-body');
