@@ -203,7 +203,7 @@
                                                             },
                                                             function(modal,component){
                                                                 const componentModal = component;
-                                                                component.header.addClass('text-bg-success');
+                                                                component.addClass('modal-success');
                                                                 component.footer.submit.addClass('btn-success').removeClass('btn-link').attr({
                                                                     "style": "border-bottom-right-radius: var(--bs-modal-inner-border-radius) !important;border-bottom-left-radius: var(--bs-modal-inner-border-radius) !important;",
                                                                 }).text(builder.Locale.get('Add'));
