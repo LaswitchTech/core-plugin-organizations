@@ -7,6 +7,7 @@
         "users": null,
         "vcard": null,
         "hourlyRate": 0,
+        "commissionCap": 0,
         "isDeleted": 0,
         "isActive": 1
     }
