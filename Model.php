@@ -18,6 +18,26 @@ class OrganizationsModel extends BaseModel {
     }
 
     /**
+     * Process a record
+     *
+     * @param array $record
+     * @return array
+     */
+    protected function process(array $record): array
+    {
+        // Call the parent constructor
+        $record = parent::process($record);
+
+        // Process the JSON fields
+        if(!is_array($record['users'])){
+            $record['users'] = json_decode($record['users'] ?? "[]", true);
+        }
+
+        // Return the processed record
+        return $record;
+    }
+
+    /**
      * Retrieve multiple records
      *
      * @param array $conditions
