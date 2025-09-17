@@ -253,6 +253,21 @@ class OrganizationsEndpoint extends BaseEndpoint {
                 // Create the event
                 $message['data']['event'][] = $this->Model->Event->create($event);
             }
+
+            // Check if the Users is accessible
+            if($this->Helper->Core->isInstalled('users')){
+
+                // Initialize the dependencies
+                $message['data']['dependencies']['users'] = [];
+
+                // Loop through the users to fetch them.
+                foreach($message['data']['record']['users'] ?? [] as $id){
+                    $message['data']['dependencies']['users'][$id] = $this->Model->Users->fetch($id);
+                }
+
+                // Set the users in the record
+                $message['data']['record']['users'] = $message['data']['dependencies']['users'];
+            }
         }
 
         // Return the message
