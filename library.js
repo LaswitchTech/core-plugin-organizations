@@ -221,6 +221,9 @@ builder.add('layouts','organization', class extends builder.ComponentClass {
                                                                                             },
                                                                                             submit: function(form){
 
+                                                                                                // Show the modal spinner
+                                                                                                modal.spinner(true);
+
                                                                                                 // Add the user to the list of members
                                                                                                 members.push(form.val());
 
